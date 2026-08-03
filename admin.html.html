@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة التحكم | تِرس</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;800;900&family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="firebase-config.js"></script>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="brand-mark" id="loginBrandMark">ت</div>
+    <h2 style="text-align:center;">لوحة تحكم تِرس</h2>
+    <p class="sub" id="loginSub">سجّل دخولك للمتابعة</p>
+    <div id="loginFormWrap" style="display:none;">
+      <div class="login-field"><label>البريد الإلكتروني</label><input id="loginEmail" type="email" placeholder="you@example.com"></div>
+      <div class="login-field"><label>كلمة السر</label><input id="loginPassword" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter') document.getElementById('loginBtn').click();"></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--steel-200);margin-bottom:14px;"><input type="checkbox" id="rememberMe" style="width:15px;height:15px;"> تذكرني على هذا الجهاز</label>
+      <button class="btn btn-primary" id="loginBtn" style="width:100%;">تسجيل الدخول</button>
+      <div class="login-error" id="loginError"></div>
+      <span class="login-forgot" id="forgotBtn">نسيت كلمة السر؟</span>
+    </div>
+    <div id="loginSpinner" style="display:block;text-align:center;padding:20px 0;color:var(--steel-400);font-size:.85rem;">⏳ جاري التحقق من الجلسة...</div>
+    <div id="bootstrapBox" style="display:none;margin-top:18px;padding-top:16px;border-top:1px solid var(--steel-700);text-align:center;">
+      <p style="font-size:.76rem;color:var(--steel-400);margin-bottom:10px;">أول مرة تفتح اللوحة؟ لا يوجد أي حساب مدير بعد.</p>
+      <button class="btn btn-ghost" id="bootstrapBtn" style="width:100%;">🚀 إنشاء حساب المدير الأول (admin@tirs.com)</button>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="brand"><div class="brand-mark" id="brandMark">ت</div><b class="side-label" id="brandName">تِرس</b></div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <div style="position:relative;">
+          <button class="notif-bell" id="notifBell">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+            <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+          </button>
+          <div class="notif-panel" id="notifPanel"></div>
+        </div>
+        <button class="hamburger" id="sideToggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      </div>
+    </div>
+    <nav class="side-nav" id="sideNav"></nav>
+    <div class="sidebar-bottom">
+      <div class="profile-row">
+        <div class="avatar" id="meAvatar">؟</div>
+        <div class="profile-text"><b id="meName">—</b><span id="meRoleLabel">—</span></div>
+      </div>
+      <button class="logout-btn" id="themeToggle" style="background:var(--steel-700);margin-bottom:8px;">🌓 تبديل الإضاءة</button>
+      <button class="logout-btn" id="logoutBtn">⏻ تسجيل الخروج</button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <section class="view active" id="view-orders">
+      <div class="page-head"><h1>لوحة الطلبات</h1><button class="btn btn-primary btn-sm" id="addOrderBtn">+ طلب جديد</button></div>
+      <div class="stats-row" id="statsRow"></div>
+      <div class="filters-panel">
+        <div class="filters-head"><span style="font-size:.78rem;color:#fff;font-weight:700;">تصفية الطلبات</span><button id="toggleOrderFilters">▾ تصغير الفلاتر</button></div>
+        <div class="filters-grid" id="orderFiltersGrid">
+          <div class="f-field"><label>بحث برقم الطلب</label><input id="ofOrderNum" placeholder="#7"></div>
+          <div class="f-field"><label>بحث برقم الجوال</label><input id="ofPhone" placeholder="09xxxxxxxx"></div>
+          <div class="f-field"><label>المدينة</label><select id="ofCity"><option value="">كل المدن</option></select></div>
+          <div class="f-field"><label>الحالة</label><select id="ofStatus"><option value="">كل الحالات</option></select></div>
+          <div class="f-field"><label>مسندة إلى</label><select id="ofAssigned"><option value="">الكل</option></select></div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:.8rem;margin-top:14px;"><input type="checkbox" id="ofMineOnly"> طلباتي أنا فقط</label>
+      </div>
+      <div class="table-scroll">
+        <table class="cell-table">
+          <thead><tr><th>الطلب</th><th>العميل</th><th>الجوال</th><th>المدينة</th><th>المنتجات</th><th>الإجمالي</th><th>الحالة</th><th>مسند إلى</th><th>الوسوم</th><th>التاريخ</th><th></th></tr></thead>
+          <tbody id="ordersTable"></tbody>
+        </table>
+      </div>
+      <div id="ordersEmpty" class="empty-state" style="display:none;">لا توجد طلبات مطابقة.</div>
+    </section>
+
+    <section class="view" id="view-products">
+      <div class="page-head">
+        <div><h1>المنتجات <span class="count-pill mono" id="prodCount">(0)</span></h1><p id="exRateNote">سعر الصرف الحالي: —</p></div>
+        <div style="display:flex;gap:8px;">
+          <label class="file-label btn btn-ghost btn-sm">📊 استيراد إكسل<input type="file" id="excelInput" accept=".xlsx,.xls" style="display:none;"></label>
+          <button class="btn btn-primary btn-sm" id="addProductBtn">+ إضافة منتج</button>
+        </div>
+      </div>
+      <div id="excelStatus" style="display:none;margin-bottom:14px;padding:12px 16px;background:var(--steel-700);border-radius:10px;font-size:.82rem;"></div>
+      <div class="toolbar">
+        <input class="search-box" id="prodSearch" placeholder="🔍 دور باسم المنتج أو رقم القطعة...">
+        <select class="cell-select" id="prodCatFilter" style="min-width:150px;">
+          <option value="">كل الأقسام</option><option value="engine">المحرك</option><option value="brake">الفرامل</option>
+          <option value="electric">كهرباء</option><option value="body">الهيكل</option><option value="tire">إطارات</option><option value="oil">زيوت</option>
+        </select>
+        <span id="bulkActionsBar" style="display:none;align-items:center;gap:8px;">
+          <span class="count-pill mono" id="selCount">0 محدد</span>
+          <button class="btn btn-ghost btn-sm" id="bulkDeleteBtn" style="color:var(--stock-red);">🗑 حذف المحدد</button>
+        </span>
+        <button class="btn btn-ghost btn-sm" id="deleteAllProductsBtn" style="margin-right:auto;color:var(--stock-red);">🗑 حذف كل المنتجات</button>
+      </div>
+      <div class="table-scroll">
+        <table class="cell-table">
+          <thead><tr><th style="width:34px;"><input type="checkbox" id="selectAllProducts"></th><th>الصورة</th><th>اسم المنتج</th><th>رقم القطعة</th><th>القسم</th><th>السعر $ (اختياري)</th><th>السعر ج.س</th><th>الكمية</th><th>الحالة</th><th></th></tr></thead>
+          <tbody id="productTable"></tbody>
+        </table>
+      </div>
+      <div id="productEmpty" class="empty-state" style="display:none;">لا توجد منتجات مطابقة.</div>
+      <div class="footer-actions" id="seedRow" style="display:none;">
+        <span class="count-pill">أول مرة تفتح اللوحة؟ عندك 129 قطعة جاهزة من شيت الإكسل الأصلي</span>
+        <button class="btn btn-ghost btn-sm" id="seedProductsBtn">🚀 استيراد الـ129 قطعة الأصلية دفعة واحدة</button>
+      </div>
+    </section>
+
+    <!-- ============ CUSTOMERS ============ -->
+    <section class="view" id="view-customers">
+      <div class="page-head"><div><h1>العملاء <span class="count-pill mono" id="custCount">(0)</span></h1><p>حسابات العملاء المسجّلين وسجل مشترياتهم وفواتيرهم</p></div></div>
+      <div class="toolbar">
+        <input class="search-box" id="custSearch" placeholder="🔍 دور بالاسم أو رقم الجوال...">
+      </div>
+      <div class="table-scroll">
+        <table class="cell-table">
+          <thead><tr><th>العميل</th><th>الجوال</th><th>المدينة</th><th>تاريخ التسجيل</th><th>عدد الطلبات</th><th>إجمالي المشتريات</th><th>رصيد مستحق</th><th></th></tr></thead>
+          <tbody id="customersTable"></tbody>
+        </table>
+      </div>
+      <div id="customersEmpty" class="empty-state" style="display:none;">لا يوجد عملاء مسجّلين بعد.</div>
+    </section>
+      <div class="page-head"><h1>التذاكر</h1><button class="btn btn-primary btn-sm" id="addTicketBtn">+ تذكرة جديدة</button></div>
+      <div class="tab-toggle">
+        <button class="tab-btn active" data-scope="customer" id="tabCustomer">تذاكر العملاء</button>
+        <button class="tab-btn" data-scope="internal" id="tabInternal">التذاكر الداخلية</button>
+      </div>
+      <div class="filters-panel">
+        <div class="filters-head"><span style="font-size:.78rem;color:#fff;font-weight:700;">تصفية</span><button id="toggleTicketFilters">▾ تصغير الفلاتر</button></div>
+        <div class="filters-grid" id="ticketFiltersGrid" style="grid-template-columns:repeat(3,1fr);">
+          <div class="f-field"><label>الحالة</label><select id="tfStatus"><option value="">الكل</option><option value="مفتوحة">مفتوحة</option><option value="قيد المعالجة">قيد المعالجة</option><option value="مغلقة">مغلقة</option></select></div>
+          <div class="f-field"><label>مسندة إلى</label><select id="tfAssigned"><option value="">الكل</option></select></div>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="cell-table">
+          <thead><tr><th>#</th><th>التصنيف</th><th>العنوان</th><th>العميل</th><th>أنشأها</th><th>مسندة إلى</th><th>الحالة</th><th>التاريخ</th><th></th></tr></thead>
+          <tbody id="ticketsTable"></tbody>
+        </table>
+      </div>
+      <div id="ticketsEmpty" class="empty-state" style="display:none;">لا توجد تذاكر.</div>
+    </section>
+
+    <section class="view" id="view-employees">
+      <div class="page-head"><h1>الموظفون</h1><button class="btn btn-primary btn-sm" id="addEmpBtn">+ إضافة موظف</button></div>
+      <div class="table-scroll">
+        <table class="cell-table">
+          <thead><tr><th>الاسم</th><th>الجوال</th><th>الدور</th><th>الصلاحيات (اضغط للتفعيل)</th><th>حساب الدخول</th><th></th></tr></thead>
+          <tbody id="empTable"></tbody>
+        </table>
+      </div>
+      <div id="empEmpty" class="empty-state" style="display:none;">لا يوجد موظفون بعد.</div>
+    </section>
+
+    <section class="view" id="view-coupons">
+      <div class="page-head"><h1>أكواد الخصم</h1><button class="btn btn-primary btn-sm" id="addCouponBtn">+ كود جديد</button></div>
+      <div class="table-scroll">
+        <table class="cell-table">
+          <thead><tr><th>الكود</th><th>النوع</th><th>القيمة</th><th>فعّال؟</th><th>تاريخ الانتهاء</th><th>حد الاستخدام (فارغ = بلا حد)</th><th>مرات الاستخدام</th><th></th></tr></thead>
+          <tbody id="couponTable"></tbody>
+        </table>
+      </div>
+      <div id="couponEmpty" class="empty-state" style="display:none;">لا توجد أكواد خصم بعد.</div>
+    </section>
+
+    <section class="view" id="view-invoices">
+      <div class="page-head"><h1>الفواتير <span class="count-pill mono" id="invCount">(0)</span></h1></div>
+      <div class="toolbar">
+        <select class="cell-select" id="invStatusFilter"><option value="">كل الحالات</option><option value="مدفوعة">مدفوعة</option><option value="غير مدفوعة">غير مدفوعة</option><option value="آجلة">آجلة (دفع لاحق)</option></select>
+      </div>
+      <div class="table-scroll">
+        <table class="cell-table">
+          <thead><tr><th>#</th><th>الطلب المرتبط</th><th>العميل</th><th>المبلغ</th><th>طريقة الدفع</th><th>الحالة</th><th>تاريخ الاستحقاق</th><th>التاريخ</th><th></th></tr></thead>
+          <tbody id="invoicesTable"></tbody>
+        </table>
+      </div>
+      <div id="invoicesEmpty" class="empty-state" style="display:none;">لا توجد فواتير بعد — تُنشأ من داخل تفاصيل أي طلب.</div>
+    </section>
+
+    <section class="view" id="view-analytics">
+      <div class="page-head">
+        <h1>لوحة التحليلات</h1>
+        <div class="toolbar" style="margin:0;">
+          <button class="chip active" data-range="day">اليوم</button>
+          <button class="chip" data-range="month">هذا الشهر</button>
+          <button class="chip" data-range="year">هذه السنة</button>
+        </div>
+      </div>
+      <div class="stats-row" id="analyticsStats"></div>
+      <div class="table-scroll" style="padding:20px;background:var(--asphalt-800);border:1px solid var(--steel-700);">
+        <h3 style="margin-bottom:14px;font-size:.95rem;">المبيعات حسب القسم</h3>
+        <div id="catBars"></div>
+      </div>
+      <div class="table-scroll" style="padding:20px;background:var(--asphalt-800);border:1px solid var(--steel-700);margin-top:16px;">
+        <h3 style="margin-bottom:14px;font-size:.95rem;">الطلبات حسب الحالة</h3>
+        <div id="statusBars"></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-events">
+      <div class="page-head"><h1>سجل الأحداث <span class="count-pill mono" id="evCount">(0)</span></h1><p>سجل تلقائي لكل عملية إضافة/تعديل/حذف بالنظام</p></div>
+      <div class="table-scroll">
+        <table class="cell-table">
+          <thead><tr><th>الوقت</th><th>المستخدم</th><th>العملية</th><th>القسم</th><th>التفاصيل</th></tr></thead>
+          <tbody id="eventsTable"></tbody>
+        </table>
+      </div>
+      <div id="eventsEmpty" class="empty-state" style="display:none;">لا توجد أحداث مسجلة بعد.</div>
+    </section>
+
+    <section class="view" id="view-settings">
+      <div class="page-head"><h1>إعدادات المتجر العامة</h1><p>تتحدث بكل صفحات الموقع فورًا</p></div>
+      <div class="table-scroll">
+        <table class="cell-table"><tbody>
+          <tr><td style="width:220px;font-weight:700;color:var(--steel-200);">اسم المتجر</td><td><input id="sName" class="editable-text" placeholder="تِرس"></td></tr>
+          <tr><td style="font-weight:700;color:var(--steel-200);">رقم واتساب (دولي بدون +)</td><td><input id="sWhatsapp" class="editable-text mono" placeholder="249912345678"></td></tr>
+          <tr><td style="font-weight:700;color:var(--steel-200);">رقم هاتف إضافي</td><td><input id="sPhone2" class="editable-text"></td></tr>
+          <tr><td style="font-weight:700;color:var(--steel-200);">الشعار التعريفي</td><td><input id="sTagline" class="editable-text"></td></tr>
+          <tr><td style="font-weight:700;color:var(--steel-200);">العنوان</td><td><input id="sAddress" class="editable-text"></td></tr>
+          <tr><td style="font-weight:700;color:var(--steel-200);">ساعات العمل</td><td><input id="sHours" class="editable-text"></td></tr>
+          <tr><td style="font-weight:700;color:var(--steel-200);">سعر صرف الدولار (كم جنيه سوداني = 1$)</td><td><input id="sExRate" class="editable-text mono" type="number" min="0" placeholder="مثال: 2100"></td></tr>
+          <tr><td style="font-weight:700;color:var(--steel-200);">رقم حساب بنكك (للتحويل)</td><td><input id="sBankak" class="editable-text mono" placeholder="مثال: 0912345678"></td></tr>
+        </tbody></table>
+      </div>
+      <div class="footer-actions"><span></span><button class="btn btn-primary" id="saveSettingsBtn">💾 حفظ الإعدادات</button></div>
+
+      <div class="page-head" style="margin-top:30px;"><h1 style="font-size:1.1rem;">طرق الدفع بالمتجر</h1><p>فعّل/جمّد أي طريقة، وغيّر اسمها المعروض للعميل</p></div>
+      <div class="table-scroll">
+        <table class="cell-table">
+          <thead><tr><th>الاسم المعروض للعميل</th><th>مفعّلة؟</th><th>قيد جغرافي</th></tr></thead>
+          <tbody id="payMethodsTable"></tbody>
+        </table>
+      </div>
+      <div class="footer-actions"><span class="count-pill">"تحويل عبر بنكك" مربوطة برفع الإيصال تلقائيًا مهما غيّرت اسمها</span><button class="btn btn-primary btn-sm" id="savePayMethodsBtn">💾 حفظ طرق الدفع</button></div>
+
+      <div class="page-head" style="margin-top:30px;"><h1 style="font-size:1.1rem;">فئات التذاكر (تظهر للعميل والموظف عند فتح تذكرة)</h1></div>
+      <div class="toolbar">
+        <input class="search-box" id="newCatInput" placeholder="اكتب فئة جديدة واضغط Enter أو الزر">
+        <button class="btn btn-primary btn-sm" id="addCatBtn">+ إضافة</button>
+      </div>
+      <div id="ticketCatsList" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Create account modal -->
+<div class="modal-backdrop" id="accModal">
+  <div class="modal-box">
+    <h3>إنشاء حساب دخول للموظف</h3>
+    <div class="login-field"><label>البريد الإلكتروني</label><input id="accEmail" type="email"></div>
+    <div class="login-field"><label>كلمة سر مبدئية</label><input id="accPassword" type="text" placeholder="6 أحرف على الأقل"></div>
+    <div class="login-error" id="accError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" style="flex:1;" id="accCancel">إلغاء</button>
+      <button class="btn btn-primary" style="flex:1;" id="accConfirm">إنشاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toastMsg"></span></div>
+
+<script src="admin.js"></script>
+</body>
+</html>

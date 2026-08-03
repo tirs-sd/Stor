@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">تِرس | قطع غيار سيارات أصلية - السودان</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;800;900&family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<link rel="stylesheet" href="store.css">
+</head>
+<body>
+
+<header>
+  <div class="header-inner wrap">
+    <div class="logo">
+      <svg class="logo-mark" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="22" fill="#2c313a" stroke="#f5b700" stroke-width="2"/><path d="M24 14a10 10 0 100 20 10 10 0 000-20zm0 4a6 6 0 110 12 6 6 0 010-12z" fill="#f5b700"/><circle cx="24" cy="24" r="3" fill="#14161a"/></svg>
+      <div class="logo-text"><span id="storeNameHeader">تِرس</span><span>.</span></div>
+    </div>
+    <nav class="main-nav">
+      <a href="#" data-nav="home">الرئيسية</a>
+      <a href="#" data-nav="orders">طلباتي</a>
+      <a href="#" data-nav="support">الدعم</a>
+    </nav>
+    <div class="header-actions">
+      <button class="icon-btn" id="themeToggle" aria-label="تبديل الإضاءة">
+        <svg id="themeIconDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+        <svg id="themeIconLight" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <button class="icon-btn" id="accountBtn" aria-label="حسابي"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg></button>
+      <button class="icon-btn" id="cartBtn" aria-label="السلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M3 4h2l2.4 12.2a2 2 0 002 1.8h8.2a2 2 0 002-1.7L21 8H6"/></svg><span class="cart-badge" id="cartBadge">0</span></button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ HOME PAGE ============ -->
+<div class="page active" id="page-home">
+  <section class="hero blueprint-bg">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="eyebrow">قطع غيار أصلية وبديل مضمون · توصيل لكل ولايات السودان</div>
+        <h1 style="margin-top:10px;">قطعتك الصح <em>من أول مرة</em></h1>
+        <p class="lead" id="storeTaglineHero">دور على قطعة غيارك بالماركة والموديل والسنة، وقارن الأسعار.</p>
+      </div>
+      <div class="finder">
+        <div class="finder-row">
+          <select id="fMake"><option value="">الماركة</option></select>
+          <select id="fModel"><option value="">الموديل</option></select>
+          <select id="fYear"><option value="">السنة</option></select>
+        </div>
+        <button class="finder-submit" id="findBtn">دوّر على القطعة</button>
+      </div>
+    </div>
+    <div class="wrap quick-icons" id="quickIcons"></div>
+  </section>
+
+  <section class="trust"><div class="wrap trust-inner">
+    <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.4 8.7-8 10-4.6-1.3-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg><div><b>ضمان أصالة القطعة</b><span>استرجاع خلال 7 أيام</span></div></div>
+    <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="12" rx="2"/></svg><div><b>ادفع عند الاستلام</b><span>أو حوّل قبل الشحن</span></div></div>
+    <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h13l-3-4M16 8h2l3 4v4h-5M3 16h13"/></svg><div><b>توصيل لكل الولايات</b><span>عبر شركات نقل موثوقة</span></div></div>
+    <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 01-12.5 7.5L3 20l1-5.5A8.5 8.5 0 1121 11.5z"/></svg><div><b>دعم فني واتساب</b><span>وتذاكر متابعة داخل الموقع</span></div></div>
+  </div></section>
+
+  <section class="section" id="categories"><div class="wrap">
+    <div class="section-head"><div><h2>تصفّح حسب القسم</h2></div></div>
+    <div class="cat-grid" id="catGrid"></div>
+  </div></section>
+
+  <section class="section" id="bestsellers" style="padding-top:0;"><div class="wrap">
+    <div class="section-head"><div><h2>المنتجات</h2></div></div>
+    <div class="store-search-row"><input id="storeSearch" class="store-search-input" placeholder="🔍 دور باسم القطعة أو رقمها..."></div>
+    <div class="chip-row" id="chipRow"></div>
+    <div class="product-grid" id="productGrid"></div>
+  </div></section>
+
+  <section class="section pd-section"><div class="wrap">
+    <div class="section-head"><div><h2>الدفع والتوصيل</h2></div></div>
+    <div class="pd-grid">
+      <div><div class="pd-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h13l-3-4M16 8h2l3 4v4h-5M3 16h13"/></svg><div><b>الدفع عند الاستلام</b><span>داخل الخرطوم</span></div></div>
+      <div class="pd-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/></svg><div><b>تحويل بنكي / بنكك</b><span>قبل الشحن</span></div></div></div>
+      <div><div class="pd-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/></svg><div><b>داخل الخرطوم</b><span>24-48 ساعة</span></div></div>
+      <div class="pd-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="15" height="10" rx="1"/></svg><div><b>الولايات</b><span>2-5 أيام</span></div></div></div>
+    </div>
+  </div></section>
+
+  <footer><div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-col"><div class="logo" style="margin-bottom:12px;"><div class="logo-text" style="font-size:1.05rem;"><span id="storeNameFooter">تِرس</span><span>.</span></div></div><p id="storeTaglineFooter">متجرك لقطع غيار السيارات الأصلية والبديل المضمون.</p></div>
+      <div class="footer-col"><h4>روابط</h4><span style="display:block;">الأقسام</span></div>
+      <div class="footer-col"><h4>خدمة العملاء</h4><span style="display:block;cursor:pointer;" data-nav="support">افتح تذكرة دعم</span></div>
+      <div class="footer-col"><h4>تواصل</h4><span style="display:block;" id="waLinkFooter">واتساب</span><span style="display:block;" id="addressFooter"></span><span style="display:block;" id="hoursFooter"></span></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 متجر تِرس</span><span>مدعوم بقاعدة بيانات حية</span></div>
+  </div></footer>
+</div>
+
+<!-- ============ ORDERS PAGE ============ -->
+<div class="page" id="page-orders"><div class="simple-page">
+  <h2>طلباتي</h2>
+  <div id="ordersNeedLogin" class="empty-note" style="display:none;">سجّل دخولك الأول عشان تشوف طلباتك</div>
+  <div id="myOrdersList"></div>
+</div></div>
+
+<!-- ============ SUPPORT PAGE ============ -->
+<div class="page" id="page-support"><div class="simple-page">
+  <h2>الدعم الفني</h2>
+  <div class="form-card">
+    <div class="form-field"><label>موضوع الاستفسار</label><select id="supCategory"></select></div>
+    <div class="form-field"><label>التفاصيل</label><textarea id="supMsg" placeholder="اكتب تفاصيل استفسارك هنا..."></textarea></div>
+    <div class="form-field"><label>رقم الجوال</label><input id="supPhone" class="mono" placeholder="09xxxxxxxx"></div>
+    <button class="btn btn-primary" id="supSubmit">إرسال التذكرة</button>
+  </div>
+  <h3 style="margin-bottom:12px;">تذاكري السابقة</h3>
+  <div id="myTicketsList"></div>
+</div></div>
+
+<!-- ============ ACCOUNT PAGE ============ -->
+<div class="page" id="page-account"><div class="simple-page">
+  <div id="accGuestView">
+    <h2>حسابي</h2>
+    <div class="auth-tabs"><button class="auth-tab active" id="tabLogin">تسجيل الدخول</button><button class="auth-tab" id="tabSignup">حساب جديد</button></div>
+    <div class="form-card" id="loginForm">
+      <div class="form-field"><label>البريد الإلكتروني</label><input id="custLoginEmail" type="email"></div>
+      <div class="form-field"><label>كلمة السر</label><input id="custLoginPass" type="password"></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--steel-200);margin-bottom:12px;"><input type="checkbox" id="custRememberMe" checked style="width:15px;height:15px;"> تذكرني على هذا الجهاز</label>
+      <button class="btn btn-primary" id="custLoginBtn">دخول</button>
+      <div class="mini-error" id="custLoginErr"></div>
+    </div>
+    <div class="form-card" id="signupForm" style="display:none;">
+      <div class="form-field"><label>الاسم الكامل</label><input id="custSignName"></div>
+      <div class="form-field"><label>رقم الجوال</label><input id="custSignPhone" class="mono"></div>
+      <div class="form-field"><label>المدينة</label><input id="custSignCity"></div>
+      <div class="form-field"><label>البريد الإلكتروني</label><input id="custSignEmail" type="email"></div>
+      <div class="form-field"><label>كلمة السر</label><input id="custSignPass" type="password"></div>
+      <button class="btn btn-primary" id="custSignBtn">إنشاء الحساب</button>
+      <div class="mini-error" id="custSignErr"></div>
+    </div>
+  </div>
+  <div id="accProfileView" style="display:none;">
+    <div class="profile-card"><div class="profile-avatar" id="profAvatar">؟</div><div><h2 id="profName" style="font-size:1.2rem;">—</h2><span style="color:var(--steel-400);font-size:.82rem;" id="profEmail">—</span></div></div>
+    <div class="form-card">
+      <div class="form-field"><label>الاسم</label><input id="profNameInput"></div>
+      <div class="form-field"><label>الجوال</label><input id="profPhoneInput" class="mono"></div>
+      <div class="form-field"><label>المدينة</label><input id="profCityInput"></div>
+      <button class="btn btn-primary" id="profSaveBtn" style="margin-bottom:10px;">حفظ التعديلات</button>
+      <button class="btn btn-ghost" id="profLogoutBtn">تسجيل الخروج</button>
+    </div>
+  </div>
+</div></div>
+
+<!-- ============ Bottom nav ============ -->
+<nav class="bottom-nav">
+  <button class="bn-item active" data-nav="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg><span>الرئيسية</span></button>
+  <button class="bn-item" data-nav="orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m0 0L4 7m8 4v10M4 7v10l8 4 8-4V7"/></svg><span>طلباتي</span></button>
+  <button class="bn-item" data-nav="support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 01-12.5 7.5L3 20l1-5.5A8.5 8.5 0 1121 11.5z"/></svg><span>الدعم</span></button>
+  <button class="bn-item" data-nav="account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg><span>حسابي</span></button>
+</nav>
+
+<!-- ============ Cart drawer ============ -->
+<div class="overlay" id="overlay"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head"><h3>عربة التسوق</h3><button class="drawer-close" id="drawerClose">✕</button></div>
+  <div class="drawer-items" id="drawerItems"></div>
+  <div class="drawer-foot">
+    <div class="coupon-row"><input id="couponInput" placeholder="كود الخصم (اختياري)"><button class="btn btn-ghost" style="width:auto;padding:10px 14px;" id="applyCouponBtn">تطبيق</button></div>
+    <div id="couponMsg" style="font-size:.76rem;margin-bottom:8px;"></div>
+    <div class="checkout-fields" id="checkoutFields">
+      <input id="custName" class="checkout-input" placeholder="الاسم الكامل">
+      <input id="custPhone" class="checkout-input mono" placeholder="رقم الجوال">
+      <input id="custCity" class="checkout-input" placeholder="المدينة">
+    </div>
+    <div id="checkoutLoggedSummary" style="display:none;background:var(--asphalt-900);border:1px solid var(--steel-600);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:.82rem;">
+      <div>الطلب باسم: <b id="sumName" style="color:#fff;"></b></div>
+      <div style="color:var(--steel-400);">📞 <span id="sumPhone"></span> · 📍 <span id="sumCity"></span></div>
+      <a href="#" id="editProfileLink" style="color:var(--hazard-400);font-size:.76rem;">تعديل بياناتي؟</a>
+    </div>
+    <div class="drawer-total discount" id="discountRow" style="display:none;"><span>الخصم</span><span id="discountAmount"></span></div>
+    <div class="drawer-total"><span>الإجمالي</span><span id="cartTotal" class="mono">0 ج.س</span></div>
+
+    <div class="pay-method-block">
+      <label class="pm-label">طريقة الدفع</label>
+      <div class="pm-options" id="pmOptionsContainer"></div>
+      <div id="bankakBox" style="display:none;">
+        <p class="pm-note">حوّل المبلغ لحساب بنكك: <b id="bankakNumberDisplay" class="mono">—</b>، وارفع صورة إيصال الحوالة هنا ليتم مراجعتها من فريقنا:</p>
+        <input type="file" id="receiptInput" accept="image/*">
+        <span id="receiptStatus" class="pm-note"></span>
+      </div>
+    </div>
+    <p id="noPayMethodMsg" class="pm-note" style="display:none;">لا توجد طريقة دفع مفعّلة حاليًا — تواصل معنا عبر واتساب لإتمام طلبك.</p>
+
+    <button class="checkout-btn" id="checkoutBtn">إتمام الطلب</button>
+  </div>
+</div>
+
+<!-- ============ Order success screen ============ -->
+<div class="overlay" id="successOverlay"></div>
+<div class="success-modal" id="successModal">
+  <div class="success-icon">✅</div>
+  <h3>تم إرسال طلبك بنجاح!</h3>
+  <p>رقم طلبك: <b id="successOrderId" class="mono"></b></p>
+  <p id="successPayNote" class="pm-note"></p>
+  <div class="success-actions">
+    <a href="#" id="successWaBtn" target="_blank" class="btn btn-ghost">تواصل معنا عبر واتساب</a>
+    <button class="btn btn-primary" id="successCloseBtn">تمام، متابعة التسوق</button>
+  </div>
+</div>
+
+<a class="wa-float" href="#" id="waFloat" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 00-8.6 15L2 22l5.2-1.4A10 10 0 1012 2zm5.7 14.2c-.2.6-1.3 1.2-1.9 1.3-.5.1-1.1.1-1.8-.1-.4-.1-1-.3-1.7-.6-3-1.3-5-4.3-5.1-4.5-.1-.2-1.2-1.6-1.2-3.1s.8-2.2 1.1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5.2.5.7 1.8.8 1.9.1.2.1.3 0 .5-.1.2-.1.3-.3.5-.1.2-.3.4-.4.5-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.7-.1.2-.2.7-.8.9-1.1.2-.3.4-.2.6-.1.2.1 1.5.7 1.8.8.3.1.5.2.5.3.1.2.1.6-.1 1.2z"/></svg></a>
+<div class="toast" id="toast"><span id="toastMsg"></span></div>
+
+<script src="store.js"></script>
+</body>
+</html>
