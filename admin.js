@@ -1,5 +1,21 @@
 
 
+// متابعة الموظف المسجل دخوله حالياً
+firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+        // 1. عرض اسم الموظف في القائمة الجانبية بالأسفل
+        const userNameElem = document.getElementById('userNameDisplay'); // أو المعرّف الموجود في HTML
+        if (userNameElem) {
+            userNameElem.textContent = user.displayName || user.email.split('@')[0];
+        }
+
+        // 2. تحميل البيانات بناءً على هذا الموظف
+        loadOrders();
+    } else {
+        // إذا لم يكن مسجلاً، العودة لصفحة الدخول
+        window.location.href = 'admin.html';
+    }
+});
 const ORDER_STATUSES = ['جديد','قيد التجهيز','قيد التوصيل','تم التسليم','ملغي'];
 const ROLE_OPTIONS = ['مدير','موظف مبيعات','مندوب توصيل','مسؤول مخزن','خدمة عملاء','محاسب'];
 const CAT_NAMES = {engine:'المحرك',brake:'الفرامل',electric:'كهرباء',body:'الهيكل',tire:'إطارات',oil:'زيوت وفلاتر'};
@@ -75,6 +91,30 @@ function isToday(v){
   const d = v.toDate ? v.toDate() : new Date(v); const n = new Date();
   return d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth() && d.getDate()===n.getDate();
 }
+function loadOrders() {
+    const currentUser = firebase.auth().currentUser;
+    const myOrdersOnlyCheckbox = document.getElementById('myOrdersOnly'); // زر الصح لـ "طلباتي أنا فقط"
+    
+    let query = db.collection("orders");
+
+    // إذا قام الموظف بتحديد خيار "طلباتي أنا فقط"
+    if (myOrdersOnlyCheckbox && myOrdersOnlyCheckbox.checked) {
+        query = query.where("assignedTo", "==", currentUser.uid);
+    }
+
+    // جلب الطلبات وعرضها للموظف الحالي دون التأثير على الآخرين
+    query.onSnapshot((snapshot) => {
+        let ordersHtml = '';
+        snapshot.forEach((doc) => {
+            const order = doc.data();
+            // بناء صفوف الجدول هنا...
+        });
+        // تحديث جدول الطلبات في الصفحة
+    });
+}
+
+// إعادة تصفية الجدول فور تغيير تحديد الزر
+document.getElementById('myOrdersOnly')?.addEventListener('change', loadOrders);
 
 /* ===================== AUTH ===================== */
 // ضبط الجلسة صراحة على "دائمة بالمتصفح" — يمنع الخروج التلقائي عند تحديث الصفحة
@@ -171,6 +211,11 @@ document.getElementById('loginBtn').addEventListener('click', async ()=>{
   document.getElementById('loginError').textContent='';
   if(!email || !pass){ document.getElementById('loginError').textContent='اكتب الإيميل وكلمة السر'; return; }
   btn.disabled = true; btn.textContent='⏳ جاري الدخول...';
+  document.getElementById('logoutBtn')?.addEventListener('click', () => {
+    firebase.auth().signOut().then(() => {
+        window.location.href = 'admin.html';
+    });
+});
   try{
     await auth.setPersistence(remember ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION);
     await auth.signInWithEmailAndPassword(email, pass);
