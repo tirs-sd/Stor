@@ -107,8 +107,19 @@ auth.onAuthStateChanged(async (user)=>{
         currentEmployee = {id:empDoc.id, ...empDoc.data()};
         currentPerms = currentEmployee.permissions || {};
       }else{
-        currentEmployee = {id:user.uid, name:user.email, role:'مدير (حساب أساسي)', canDelete:true};
-        currentPerms = {orders:true,products:true,tickets:true,employees:true,coupons:true,invoices:true,analytics:true,events:true,settings:true};
+        // الحساب مسجّل دخوله لكن مالوش سجل حقيقي بقاعدة البيانات — نحاول ننشئه فعليًا (بتنجح بس للحساب المصرّح له بقواعد الحماية)
+        currentEmployee = {
+          id:user.uid, name:user.email, role:'مدير', email:user.email, canDelete:true, isManager:true,
+          permissions:{orders:true,products:true,tickets:true,employees:true,coupons:true,invoices:true,analytics:true,events:true,settings:true},
+          addedDate:new Date().toISOString().slice(0,10)
+        };
+        currentPerms = currentEmployee.permissions;
+        try{
+          await db.collection('employees').doc(user.uid).set(currentEmployee);
+          logEvent('إصلاح تلقائي', 'employees', user.uid, 'تم إنشاء سجل الموظف الناقص تلقائيًا');
+        }catch(fixErr){
+          console.warn('تعذر الإصلاح التلقائي — الحساب ده مش مصرّح له بقواعد الحماية:', fixErr.message);
+        }
       }
     }catch(err){
       console.error('تعذر جلب بيانات الموظف:', err);
@@ -177,14 +188,23 @@ document.getElementById('logoutBtn').addEventListener('click', ()=> auth.signOut
 
 function buildSideNav(){
   const nav = document.getElementById('sideNav');
-  const visible = NAV_ITEMS.filter(it=> currentPerms[it.perm]);
+  const isFullManager = currentEmployee && currentEmployee.role==='مدير';
+  const visible = NAV_ITEMS.filter(it=> isFullManager || currentPerms[it.perm]);
   nav.innerHTML = visible.map((it,i)=>`
     <button class="side-item ${i===0?'active':''}" data-view="${it.view}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${it.icon}</svg>
       <span class="side-label">${it.label}</span>
     </button>`).join('');
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  if(visible[0]) document.getElementById('view-'+visible[0].view).classList.add('active');
+  if(visible.length===0){
+    document.querySelector('.main').innerHTML = `<div style="text-align:center;padding:80px 20px;color:var(--steel-400);">
+      <div style="font-size:2.4rem;margin-bottom:12px;">🔒</div>
+      <h2 style="color:#fff;font-family:'Cairo',sans-serif;margin-bottom:8px;">مفيش صلاحيات مفعّلة لحسابك</h2>
+      <p>اطلب من المدير يفعّل لك صلاحية وصول واحدة على الأقل من قسم "الموظفون".</p>
+    </div>`;
+    return;
+  }
+  document.getElementById('view-'+visible[0].view).classList.add('active');
   nav.querySelectorAll('.side-item').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       nav.querySelectorAll('.side-item').forEach(b=>b.classList.remove('active'));
@@ -215,6 +235,7 @@ function startListeners(){
     document.getElementById('exRateNote').textContent = `سعر الصرف الحالي: ${settings.exchangeRate||'—'} ج.س لكل 1$`;
     fillSettingsForm();
     renderTicketCats();
+    renderPayMethodsTable();
     renderTickets();
   });
   db.collection('products').onSnapshot(snap=>{
@@ -1087,12 +1108,16 @@ document.getElementById('addTicketBtn').addEventListener('click', ()=>{
 
 /* ===================== COUPONS ===================== */
 function couponRow(c){
+  const used = c.usedCount||0;
+  const limitReached = c.usageLimit && used>=c.usageLimit;
   return `<tr data-id="${c.id}">
     <td><input class="editable-text mono" data-field="code" value="${escAttr(c.code||'')}" style="text-transform:uppercase;"></td>
     <td><select class="cell-select" data-field="type"><option value="percent" ${c.type==='percent'?'selected':''}>نسبة %</option><option value="fixed" ${c.type==='fixed'?'selected':''}>مبلغ ثابت</option></select></td>
     <td><input class="editable-text mono" data-field="value" type="number" min="0" value="${c.value||0}"></td>
     <td><input type="checkbox" data-field="active" ${c.active?'checked':''}></td>
     <td><input class="editable-text" data-field="expiry" type="date" value="${c.expiry||''}"></td>
+    <td><input class="editable-text mono" data-field="usageLimit" type="number" min="0" placeholder="بلا حد" value="${c.usageLimit||''}"></td>
+    <td class="mono" style="${limitReached?'color:var(--stock-red);font-weight:700;':''}">${used}${c.usageLimit?(' / '+c.usageLimit):''}</td>
     <td><button class="icon-btn-sm danger" data-action="del-coupon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z"/></svg></button></td>
   </tr>`;
 }
@@ -1106,6 +1131,7 @@ document.getElementById('couponTable').addEventListener('change', (e)=>{
   let val = field==='active' ? e.target.checked : e.target.value;
   if(field==='code') val = String(val).toUpperCase();
   if(field==='value') val = parseFloat(val)||0;
+  if(field==='usageLimit') val = e.target.value.trim()==='' ? null : (parseInt(e.target.value)||0);
   db.collection('coupons').doc(id).update({[field]: val});
 });
 document.getElementById('couponTable').addEventListener('click', (e)=>{
@@ -1130,6 +1156,26 @@ function fillSettingsForm(){
   document.getElementById('sExRate').value = settings.exchangeRate||'';
   document.getElementById('sBankak').value = settings.bankakNumber||'';
 }
+const DEFAULT_PAY_METHODS = [{id:'cod', label:'نقدي عند الاستلام', enabled:true}, {id:'bankak', label:'تحويل عبر بنكك', enabled:true}];
+function payMethods(){ return (settings.paymentMethods && settings.paymentMethods.length) ? settings.paymentMethods : DEFAULT_PAY_METHODS; }
+function renderPayMethodsTable(){
+  document.getElementById('payMethodsTable').innerHTML = payMethods().map(m=>`
+    <tr data-pmid="${m.id}">
+      <td><input class="editable-text" data-pmfield="label" value="${escAttr(m.label)}"></td>
+      <td><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" data-pmfield="enabled" ${m.enabled?'checked':''} style="width:16px;height:16px;"> ${m.enabled?'مفعّلة':'مجمّدة'}</label></td>
+    </tr>`).join('');
+}
+document.getElementById('savePayMethodsBtn').addEventListener('click', ()=>{
+  const updated = [...document.querySelectorAll('#payMethodsTable tr')].map(tr=>({
+    id: tr.dataset.pmid,
+    label: tr.querySelector('[data-pmfield="label"]').value.trim() || tr.dataset.pmid,
+    enabled: tr.querySelector('[data-pmfield="enabled"]').checked
+  }));
+  db.collection('settings').doc('main').set({paymentMethods:updated}, {merge:true}).then(()=>{
+    logEvent('تعديل','settings','main','تحديث طرق الدفع'); showToast('تم حفظ طرق الدفع');
+  });
+});
+
 function renderTicketCats(){
   const cats = ticketCategories();
   document.getElementById('ticketCatsList').innerHTML = cats.map(c=>`
