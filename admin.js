@@ -471,7 +471,7 @@ function orderRow(o){
   const items = (o.items||[]).map(it=>`<div class="item-line"><span class="qty">${it.qty}×</span> ${escAttr(it.name)} ${it.pn?`<span class="pn">(${escAttr(it.pn)})</span>`:''} <span class="mono" style="color:var(--hazard-400);float:left;">${Number(it.price||0).toLocaleString('ar-SD')} ج.س</span></div>`).join('');
   const delBtn = canDelete() ? `<button class="icon-btn-sm danger" data-action="del-order"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z"/></svg></button>` : '';
   const rows = `<tr data-id="${o.id}">
-    <td class="order-id">#${String(o.id).slice(-5)}</td>
+    <td><button class="order-id" data-action="open-order-detail" style="background:transparent;border:none;cursor:pointer;text-decoration:underline;">#${String(o.id).slice(-5)}</button></td>
     <td><input class="editable-text" data-field="customer" value="${escAttr(o.customer||'')}"></td>
     <td><input class="editable-text mono" data-field="phone" value="${escAttr(o.phone||'')}"></td>
     <td><input class="editable-text" data-field="city" value="${escAttr(o.city||'')}"></td>
@@ -489,31 +489,76 @@ function orderRow(o){
   const detailsOpen = openOrderId===o.id;
   if(!detailsOpen) return rows;
   const orderInvoice = invoices.find(inv=>inv.orderId===o.id);
+  const linkedCustomer = o.customerUid ? customers.find(c=>c.id===o.customerUid) : null;
   const quickTagsHtml = QUICK_TAGS.map(t=>`<button class="quick-tag-btn" data-quick-tag="${t}" ${((o.tags||[]).includes(t))?'style="opacity:.4;"':''}>+ ${t}</button>`).join('');
   const mentionChecks = employees.map(e=>`<label style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;color:var(--steel-200);margin-left:10px;"><input type="checkbox" class="mention-check" value="${e.id}" style="width:13px;height:13px;"> ${escAttr(e.name)}</label>`).join('');
-  const commentsHtml = (o.comments||[]).map(c=>`<div class="comment-item">
+  const commentsHtml = (o.comments||[]).map(c=>`<div class="comment-item ${c.visibleToCustomer?'customer-visible':'staff-msg'}">
       <span class="time">${arDate(c.date)}</span>
-      <b>${escAttr(c.author)}</b> ${c.visibleToCustomer?'<span class="vis">مرئي للعميل</span>':''}
+      <b>${escAttr(c.author)}</b> ${c.visibleToCustomer?'<span class="vis">✓ مرئي للعميل</span>':'<span class="internal">داخلي فقط</span>'}
       <p>${escAttr(c.text)}</p>
     </div>`).join('') || '<span style="color:var(--steel-400);font-size:.78rem;">لا توجد تعليقات بعد</span>';
   const statusLogHtml = (o.statusLog||[]).slice().reverse().map(l=>`<div class="log-item">${arDate(l.at)} — ${escAttr(l.by)} غيّر الحالة إلى «${escAttr(l.status)}»</div>`).join('') || '<span style="color:var(--steel-400);font-size:.76rem;">لا يوجد سجل بعد</span>';
+  const itemsDetailHtml = (o.items||[]).map(it=>`<div class="order-item-row"><span>${it.qty}× ${escAttr(it.name)} ${it.pn?`<span class="pn">(${escAttr(it.pn)})</span>`:''}</span><span class="mono">${Number(it.price*it.qty||0).toLocaleString('ar-SD')} ج.س</span></div>`).join('');
   const detailsRow = `<tr class="details-row" data-details-for="${o.id}">
     <td colspan="11">
-      <div style="margin-bottom:14px;">
-        <label style="font-size:.72rem;color:var(--steel-400);display:block;margin-bottom:6px;">الوسوم:</label>
-        <div class="quick-tags">${quickTagsHtml}</div>
-        <input class="editable-text" style="max-width:220px;display:inline-block;background:var(--asphalt-900);border:1px solid var(--steel-600);padding:6px 8px;margin-top:6px;" data-action="new-tag-input" placeholder="وسم مخصص واضغط Enter">
+      <!-- نظرة عامة: بطاقات منظمة -->
+      <div class="info-cards-grid">
+        <div class="info-card">
+          <h4>📋 تفاصيل الطلب</h4>
+          <div class="info-line"><span>رقم الطلب</span><b class="mono">#${String(o.id).slice(-6)}</b></div>
+          <div class="info-line"><span>تاريخ الطلب</span><b>${arDate(o.date)}</b></div>
+          <div class="info-line"><span>طريقة الدفع</span><b>${escAttr(o.paymentMethod||'—')}</b></div>
+          <div class="info-line"><span>حالة الدفع</span><b>${escAttr(o.paymentStatus||'—')}</b></div>
+          <div class="info-line"><span>الإجمالي</span><b class="mono" style="color:var(--hazard-400);">${Number(o.total||0).toLocaleString('ar-SD')} ج.س</b></div>
+        </div>
+        <div class="info-card">
+          <h4>👤 معلومات العميل</h4>
+          <div class="info-line"><span>الاسم</span><b>${escAttr(o.customer||'—')}</b></div>
+          <div class="info-line"><span>الجوال</span><b class="mono">${escAttr(o.phone||'—')}</b></div>
+          <div class="info-line"><span>المدينة</span><b>${escAttr(o.city||'—')}</b></div>
+          <div class="info-line"><span>نوع الحساب</span><b>${linkedCustomer?`عميل مسجّل ✓ (${escAttr(linkedCustomer.email||'')})`:'زائر (بدون حساب)'}</b></div>
+        </div>
+        <div class="info-card">
+          <h4>⚙️ إدارة الطلب</h4>
+          <div class="info-line"><span>الوسوم</span><div>${tagsHtml(o)}</div></div>
+          <div class="quick-tags" style="margin-top:6px;">${quickTagsHtml}</div>
+          <input class="editable-text" style="background:var(--asphalt-900);border:1px solid var(--steel-600);padding:6px 8px;margin-top:6px;width:100%;" data-action="new-tag-input" placeholder="وسم مخصص واضغط Enter">
+        </div>
       </div>
-      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+
+      <!-- بنود الطلب -->
+      <div class="detail-panel">
+        <h4>📦 بنود الطلب</h4>
+        <div class="order-items-detail">${itemsDetailHtml || '<span style="color:var(--steel-400);font-size:.8rem;">لا توجد بنود</span>'}</div>
+      </div>
+
+      <!-- إجراءات سريعة -->
+      <div style="display:flex;gap:10px;margin:14px 0;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" data-action="open-ticket-for-order">🎫 فتح تذكرة لهذا الطلب</button>
-        ${orderInvoice
-          ? `<button class="btn btn-ghost btn-sm" data-action="goto-invoice" data-inv="${orderInvoice.id}">🧾 عرض الفاتورة (${orderInvoice.status})</button>`
-          : `<button class="btn btn-ghost btn-sm" data-action="create-invoice">🧾 إنشاء فاتورة لهذا الطلب</button>`}
       </div>
-      <div style="font-size:.75rem;color:var(--steel-400);margin-bottom:8px;">التعليقات الداخلية (يشوفها الموظفون بس، إلا لو فعّلت "مرئي للعميل")</div>
-      <div class="comments-box">${commentsHtml}</div>
-      <div style="margin-top:8px;">
-        <input placeholder="اكتب تعليق..." data-action="new-comment-input" style="width:100%;padding:9px 10px;border-radius:7px;background:var(--asphalt-900);border:1px solid var(--steel-600);color:#fff;font-size:.83rem;margin-bottom:6px;">
+
+      <!-- الفاتورة (مضمّنة كاملة هنا، مش مجرد رابط) -->
+      <div class="detail-panel">
+        <h4>🧾 الفاتورة</h4>
+        ${orderInvoice ? (()=>{
+          const amt = Number(orderInvoice.amount||0), pd = Number(orderInvoice.paidAmount||0), rem = amt-pd;
+          const pct = amt>0 ? Math.min(100,(pd/amt*100)).toFixed(0) : 0;
+          const clr = rem<=0 ? 'var(--stock-green)' : (pd>0 ? 'var(--stock-amber)' : 'var(--stock-red)');
+          return `
+          <div class="info-line"><span>الحالة</span><b>${escAttr(orderInvoice.status||'')}</b></div>
+          <div class="info-line"><span>طريقة الدفع</span><b>${escAttr(orderInvoice.paymentMethod||'—')}</b></div>
+          <div class="info-line"><span>الإجمالي</span><b class="mono">${amt.toLocaleString('ar-SD')} ج.س</b></div>
+          <div style="background:var(--asphalt-900);border-radius:5px;height:7px;overflow:hidden;margin:8px 0;"><div style="width:${pct}%;background:${clr};height:100%;"></div></div>
+          <div class="info-line"><span>مدفوع: <input class="editable-text mono" data-inv-field="paidAmount" data-inv-id="${orderInvoice.id}" type="number" min="0" value="${pd}" style="width:80px;display:inline-block;padding:2px 6px;"></span><b class="mono" style="color:${clr};">متبقي ${rem.toLocaleString('ar-SD')} ج.س</b></div>
+          <button class="btn btn-ghost btn-sm" data-action="print-invoice-embed" data-inv="${orderInvoice.id}" style="margin-top:8px;">🖨 طباعة الفاتورة</button>`;
+        })() : `<p style="color:var(--steel-400);font-size:.82rem;margin-bottom:10px;">لسه ما اتعملتش فاتورة لهذا الطلب</p><button class="btn btn-primary btn-sm" data-action="create-invoice">+ إنشاء فاتورة الآن</button>`}
+      </div>
+
+      <!-- التعليقات الداخلية -->
+      <div class="detail-panel">
+        <h4>💬 التعليقات الداخلية <span style="font-weight:400;color:var(--steel-400);font-size:.72rem;">(يشوفها الموظفون بس، إلا لو فعّلت "مرئي للعميل")</span></h4>
+        <div class="comments-box">${commentsHtml}</div>
+        <input placeholder="اكتب تعليق..." data-action="new-comment-input" style="width:100%;padding:9px 10px;border-radius:7px;background:var(--asphalt-900);border:1px solid var(--steel-600);color:#fff;font-size:.83rem;margin:8px 0 6px;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
           <div>
             <label style="font-size:.74rem;color:var(--steel-200);"><input type="checkbox" data-action="visible-toggle" style="width:13px;height:13px;"> إظهار للعميل</label>
@@ -522,8 +567,10 @@ function orderRow(o){
           <button class="btn btn-primary btn-sm" data-action="send-comment">إرسال</button>
         </div>
       </div>
-      <div style="margin-top:14px;border-top:1px solid var(--steel-700);padding-top:10px;">
-        <label style="font-size:.72rem;color:var(--steel-400);display:block;margin-bottom:4px;">سجل تغييرات الحالة:</label>
+
+      <!-- سجل تغييرات الحالة -->
+      <div class="detail-panel">
+        <h4>🕒 سجل تغييرات الحالة</h4>
         ${statusLogHtml}
       </div>
     </td>
@@ -537,6 +584,16 @@ function renderOrders(){
   document.getElementById('ordersTable').innerHTML = list.map(orderRow).join('');
 }
 document.getElementById('ordersTable').addEventListener('change', (e)=>{
+  const invField = e.target.dataset.invField;
+  if(invField==='paidAmount'){
+    const invId = e.target.dataset.invId;
+    const inv = invoices.find(x=>x.id===invId);
+    const paid = parseFloat(e.target.value)||0;
+    const newStatus = invoiceStatusFromPaid(inv?inv.amount:0, paid);
+    db.collection('invoices').doc(invId).update({paidAmount:paid, status:newStatus});
+    logEvent('تعديل فاتورة', 'invoices', invId, `مدفوع → ${paid} (${newStatus})`);
+    return;
+  }
   const field=e.target.dataset.field; if(!field) return;
   const tr = e.target.closest('tr');
   const id=tr.dataset.id;
@@ -568,6 +625,8 @@ document.getElementById('ordersTable').addEventListener('keydown', (e)=>{
 });
 document.getElementById('ordersTable').addEventListener('click', async (e)=>{
   const tr = e.target.closest('tr');
+  const printEmbedBtn = e.target.closest('[data-action="print-invoice-embed"]');
+  if(printEmbedBtn){ printInvoice(printEmbedBtn.dataset.inv); return; }
   const rmTag = e.target.closest('[data-remove-tag]');
   if(rmTag){
     const id = tr.dataset.id;
@@ -587,10 +646,12 @@ document.getElementById('ordersTable').addEventListener('click', async (e)=>{
     return;
   }
   const toggleBtn = e.target.closest('[data-action="toggle-details"]');
-  if(toggleBtn){
+  const openBtn = e.target.closest('[data-action="open-order-detail"]');
+  if(toggleBtn || openBtn){
     const id = tr.dataset.id;
-    openOrderId = (openOrderId===id) ? null : id;
+    openOrderId = toggleBtn ? ((openOrderId===id) ? null : id) : id; // الضغط على رقم الطلب يفتح دايمًا (مش يبدّل)
     renderOrders();
+    if(openBtn){ setTimeout(()=> tr.scrollIntoView({behavior:'smooth', block:'start'}), 50); }
     return;
   }
   const delBtn = e.target.closest('[data-action="del-order"]');
@@ -634,8 +695,9 @@ document.getElementById('ordersTable').addEventListener('click', async (e)=>{
     if(!o){ return; }
     db.collection('invoices').add({
       orderId, customer:o.customer||'', phone:o.phone||'', amount:o.total||0,
+      items: o.items||[], paidAmount:0, paymentMethod: o.paymentMethod||'نقدي عند الاستلام',
       paymentTerm:'now', status:'غير مدفوعة', dueDate:'', createdAt:firebase.firestore.FieldValue.serverTimestamp()
-    }).then(()=>{ logEvent('إنشاء', 'invoices', orderId, 'فاتورة جديدة'); showToast('تم إنشاء الفاتورة — عدّلها من قسم الفواتير'); });
+    }).then(()=>{ logEvent('إنشاء', 'invoices', orderId, 'فاتورة جديدة'); showToast('تم إنشاء الفاتورة'); });
     return;
   }
   const gotoInvBtn = e.target.closest('[data-action="goto-invoice"]');
@@ -712,7 +774,13 @@ function renderAnalytics(){
 }
 
 /* ===================== INVOICES ===================== */
-const INVOICE_STATUSES = ['غير مدفوعة','قيد المراجعة','مدفوعة','آجلة'];
+const INVOICE_STATUSES = ['غير مدفوعة','مدفوعة جزئيًا','قيد المراجعة','مدفوعة','آجلة'];
+function invoiceStatusFromPaid(amount, paid){
+  amount = Number(amount)||0; paid = Number(paid)||0;
+  if(paid<=0) return 'غير مدفوعة';
+  if(paid>=amount) return 'مدفوعة';
+  return 'مدفوعة جزئيًا';
+}
 const PAYMENT_METHODS = ['نقدي عند الاستلام','تحويل بنكك','آجل (حساب تجاري)'];
 document.getElementById('invStatusFilter').addEventListener('change', renderInvoices);
 function renderInvoices(){
@@ -723,33 +791,115 @@ function renderInvoices(){
   document.getElementById('invoicesTable').innerHTML = list.map(inv=>{
     const statusOpts = INVOICE_STATUSES.map(s=>`<option value="${s}" ${inv.status===s?'selected':''}>${s}</option>`).join('');
     const methodOpts = PAYMENT_METHODS.map(m=>`<option value="${m}" ${inv.paymentMethod===m?'selected':''}>${m}</option>`).join('');
+    const amount = Number(inv.amount||0), paid = Number(inv.paidAmount||0), remaining = amount-paid;
+    const barPct = amount>0 ? Math.min(100, (paid/amount*100)).toFixed(0) : 0;
+    const barColor = remaining<=0 ? 'var(--stock-green)' : (paid>0 ? 'var(--stock-amber)' : 'var(--stock-red)');
     return `<tr data-id="${inv.id}">
       <td class="order-id">#${String(inv.id).slice(-5)}</td>
       <td class="mono">${inv.orderId?('#'+String(inv.orderId).slice(-5)):'—'}</td>
       <td>${escAttr(inv.customer||'—')}</td>
-      <td class="mono">${Number(inv.amount||0).toLocaleString('ar-SD')} ج.س</td>
+      <td>
+        <div class="mono" style="font-weight:700;color:#fff;">${amount.toLocaleString('ar-SD')} ج.س</div>
+        <div style="background:var(--asphalt-900);border-radius:5px;height:6px;overflow:hidden;margin:5px 0 3px;width:120px;"><div style="width:${barPct}%;background:${barColor};height:100%;"></div></div>
+        <div style="font-size:.7rem;color:var(--steel-400);">مدفوع: <input class="editable-text mono" data-field="paidAmount" type="number" min="0" value="${paid||0}" style="width:70px;display:inline-block;padding:2px 4px;">
+        ${remaining>0?` — متبقي <span class="mono" style="color:${barColor};">${remaining.toLocaleString('ar-SD')}</span>`:' ✓'}</div>
+      </td>
       <td><select class="cell-select" data-field="paymentMethod">${methodOpts}</select></td>
       <td><select class="cell-select" data-field="status">${statusOpts}</select></td>
       <td><input class="editable-text" type="date" data-field="dueDate" value="${inv.dueDate||''}"></td>
       <td class="date-cell">${arDate(inv.createdAt)}</td>
-      <td>${inv.receiptUrl?`<a href="${inv.receiptUrl}" target="_blank" class="btn-ghost btn-sm" style="display:inline-block;text-decoration:none;">🧾 الإيصال</a>`:'<span style="color:var(--steel-400);font-size:.72rem;">لا يوجد</span>'}
-      <button class="del-btn" data-action="del-invoice" title="حذف" style="margin-right:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z"/></svg></button></td>
+      <td>
+        <button class="btn-ghost btn-sm" data-action="print-invoice" style="margin-left:4px;">🖨 طباعة</button>
+        ${inv.receiptUrl?`<a href="${inv.receiptUrl}" target="_blank" class="btn-ghost btn-sm" style="display:inline-block;text-decoration:none;">🧾 الإيصال</a>`:''}
+        <button class="del-btn" data-action="del-invoice" title="حذف" style="margin-right:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z"/></svg></button></td>
     </tr>`;
   }).join('');
 }
 document.getElementById('invoicesTable').addEventListener('change', (e)=>{
   const field = e.target.dataset.field; if(!field) return;
   const id = e.target.closest('tr').dataset.id;
+  const inv = invoices.find(x=>x.id===id);
+  if(field==='paidAmount'){
+    const paid = parseFloat(e.target.value)||0;
+    const newStatus = invoiceStatusFromPaid(inv?inv.amount:0, paid);
+    db.collection('invoices').doc(id).update({paidAmount:paid, status:newStatus});
+    logEvent('تعديل فاتورة', 'invoices', id, `مدفوع → ${paid} (${newStatus})`);
+    return;
+  }
   db.collection('invoices').doc(id).update({[field]: e.target.value});
   logEvent('تعديل فاتورة', 'invoices', id, `${field} → ${e.target.value}`);
 });
 document.getElementById('invoicesTable').addEventListener('click', (e)=>{
+  const printBtn = e.target.closest('[data-action="print-invoice"]');
+  if(printBtn){ printInvoice(printBtn.closest('tr').dataset.id); return; }
   const btn = e.target.closest('[data-action="del-invoice"]'); if(!btn) return;
   if(!canDelete()){ showToast('ما عندك صلاحية حذف'); return; }
   const id = btn.closest('tr').dataset.id;
   if(!confirm('حذف الفاتورة؟')) return;
   db.collection('invoices').doc(id).delete().then(()=>{ logEvent('حذف', 'invoices', id, ''); showToast('تم حذف الفاتورة'); });
 });
+
+function printInvoice(invId){
+  const inv = invoices.find(x=>x.id===invId);
+  if(!inv){ showToast('تعذر إيجاد الفاتورة'); return; }
+  const order = inv.orderId ? orders.find(o=>o.id===inv.orderId) : null;
+  let items = (inv.items && inv.items.length) ? inv.items : (order ? (order.items||[]) : []);
+  if((!inv.items || !inv.items.length) && items.length){
+    db.collection('invoices').doc(inv.id).update({items}); // إصلاح ذاتي لفاتورة قديمة — تُحفظ البنود بأثر رجعي لأول مرة
+  }
+  const amount = Number(inv.amount||0), paid = Number(inv.paidAmount||0), remaining = amount-paid;
+  const itemsRows = items.length ? items.map(it=>`
+    <tr>
+      <td>${escAttr(it.name)}${it.pn?` <span style="color:#888;font-size:.8em;">(${escAttr(it.pn)})</span>`:''}</td>
+      <td style="text-align:center;">${it.qty}</td>
+      <td style="text-align:left;">${Number(it.price||0).toLocaleString('en-US')} ج.س</td>
+      <td style="text-align:left;">${Number((it.price||0)*(it.qty||1)).toLocaleString('en-US')} ج.س</td>
+    </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:#999;padding:16px;">لا توجد بنود مفصّلة مرتبطة بهذه الفاتورة</td></tr>`;
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>فاتورة #${String(inv.id).slice(-6)}</title>
+  <style>
+    body{font-family:Tahoma,Arial,sans-serif;padding:40px;color:#17181b;max-width:780px;margin:0 auto;}
+    .inv-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #f5b700;padding-bottom:18px;margin-bottom:24px;}
+    .inv-head h1{margin:0;font-size:1.5rem;}
+    .inv-head p{margin:2px 0;color:#555;font-size:.85rem;}
+    .badge{display:inline-block;padding:4px 14px;border-radius:100px;font-size:.8rem;font-weight:700;margin-top:6px;}
+    .badge.paid{background:#e6f4ea;color:#1e7d32;}
+    .badge.partial{background:#fff4e0;color:#b06d00;}
+    .badge.unpaid{background:#fdecea;color:#c0392b;}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;}
+    .box{background:#f7f6f3;border-radius:8px;padding:14px 16px;}
+    .box h3{margin:0 0 8px;font-size:.85rem;color:#888;}
+    .box p{margin:2px 0;font-size:.92rem;}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+    th{background:#17181b;color:#fff;padding:10px;font-size:.82rem;text-align:right;}
+    td{padding:10px;border-bottom:1px solid #eee;font-size:.88rem;}
+    .totals{margin-right:auto;width:280px;}
+    .totals div{display:flex;justify-content:space-between;padding:6px 0;font-size:.9rem;}
+    .totals .final{border-top:2px solid #17181b;font-weight:700;font-size:1.1rem;padding-top:10px;}
+    .print-btn{margin-top:24px;padding:10px 24px;background:#f5b700;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:.9rem;}
+    @media print{.print-btn{display:none;}}
+  </style></head><body>
+    <div class="inv-head">
+      <div><h1>${escAttr(settings.storeName||'المتجر')}</h1><p>${escAttr(settings.address||'')}</p><p>${escAttr(settings.whatsappNumber||'')}</p></div>
+      <div style="text-align:left;"><h1>فاتورة</h1><p># ${String(inv.id).slice(-6)}</p><p>${arDate(inv.createdAt)}</p>
+        <span class="badge ${remaining<=0?'paid':(paid>0?'partial':'unpaid')}">${escAttr(inv.status||'')}</span>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="box"><h3>بيانات العميل</h3><p><b>${escAttr(inv.customer||'—')}</b></p><p>${escAttr(inv.phone||'')}</p></div>
+      <div class="box"><h3>تفاصيل الدفع</h3><p>طريقة الدفع: ${escAttr(inv.paymentMethod||'—')}</p><p>${inv.dueDate?`تاريخ الاستحقاق: ${inv.dueDate}`:''}</p></div>
+    </div>
+    <table><thead><tr><th>الصنف</th><th style="text-align:center;">الكمية</th><th style="text-align:left;">السعر</th><th style="text-align:left;">الإجمالي</th></tr></thead>
+    <tbody>${itemsRows}</tbody></table>
+    <div class="totals">
+      <div><span>الإجمالي</span><span>${amount.toLocaleString('en-US')} ج.س</span></div>
+      <div><span>المدفوع</span><span>${paid.toLocaleString('en-US')} ج.س</span></div>
+      <div class="final"><span>المتبقي</span><span>${remaining.toLocaleString('en-US')} ج.س</span></div>
+    </div>
+    <button class="print-btn" onclick="window.print()">🖨 طباعة / حفظ PDF</button>
+  </body></html>`);
+  win.document.close();
+}
 
 document.getElementById('addOrderBtn').addEventListener('click', ()=>{
   db.collection('orders').add({customer:'', phone:'', city:'', items:[], total:0, status:'جديد', assignedTo:'', tags:[], comments:[], statusLog:[], date:firebase.firestore.FieldValue.serverTimestamp()})
@@ -1164,9 +1314,9 @@ function renderCustomers(){
     const totalSpent = cOrders.filter(o=>o.status!=='ملغي').reduce((s,o)=>s+(Number(o.total)||0),0);
     const outstanding = cInvoices.filter(i=> i.status==='غير مدفوعة' || i.status==='آجلة').reduce((s,i)=>s+(Number(i.amount)||0),0);
     const rows = `<tr data-id="${c.id}">
-      <td><b class="cust-name">${escAttr(c.name||'—')}</b><br><span style="color:var(--steel-400);font-size:.72rem;">${escAttr(c.email||'')}</span></td>
-      <td class="mono">${escAttr(c.phone||'—')}</td>
-      <td>${escAttr(c.city||'—')}</td>
+      <td><input class="editable-text cust-name" data-cfield="name" value="${escAttr(c.name||'')}" placeholder="بدون اسم"><br><span style="color:var(--steel-400);font-size:.72rem;">✉️ ${escAttr(c.email||'—')}</span></td>
+      <td><input class="editable-text mono" data-cfield="phone" value="${escAttr(c.phone||'')}" placeholder="—"></td>
+      <td><input class="editable-text" data-cfield="city" value="${escAttr(c.city||'')}" placeholder="—"></td>
       <td class="date-cell">${arDate(c.createdAt)}</td>
       <td class="mono">${cOrders.length}</td>
       <td class="mono">${totalSpent.toLocaleString('ar-SD')} ج.س</td>
@@ -1175,20 +1325,39 @@ function renderCustomers(){
     </tr>`;
     if(openCustomerId!==c.id) return rows;
     const ordersHtml = cOrders.length ? cOrders.map(o=>`<div class="comment-item"><span class="time">${arDate(o.date)}</span><b>طلب #${String(o.id).slice(-5)}</b> — <span class="mono">${Number(o.total||0).toLocaleString('ar-SD')} ج.س</span> — ${escAttr(o.status||'')}</div>`).join('') : '<span style="color:var(--steel-400);font-size:.78rem;">لا توجد طلبات</span>';
-    const invoicesHtml = cInvoices.length ? cInvoices.map(i=>`<div class="comment-item"><span class="time">${arDate(i.createdAt)}</span><b>فاتورة #${String(i.id).slice(-5)}</b> — <span class="mono">${Number(i.amount||0).toLocaleString('ar-SD')} ج.س</span> — ${escAttr(i.status||'')} ${i.dueDate?'— استحقاق: '+i.dueDate:''}</div>`).join('') : '<span style="color:var(--steel-400);font-size:.78rem;">لا توجد فواتير</span>';
+    const invoicesHtml = cInvoices.length ? cInvoices.map(i=>{
+      const paid = Number(i.paidAmount)||0, total = Number(i.amount)||0, remaining = total-paid;
+      return `<div class="comment-item"><span class="time">${arDate(i.createdAt)}</span><b>فاتورة #${String(i.id).slice(-5)}</b> — <span class="mono">${total.toLocaleString('ar-SD')} ج.س</span> — ${escAttr(i.status||'')}${remaining>0 && paid>0 ? ` (متبقي ${remaining.toLocaleString('ar-SD')})` : ''}</div>`;
+    }).join('') : '<span style="color:var(--steel-400);font-size:.78rem;">لا توجد فواتير</span>';
     return rows + `<tr class="details-row" data-cust-details-for="${c.id}"><td colspan="8">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:10px;">
         <div><div style="font-size:.78rem;color:var(--steel-400);margin-bottom:8px;">📦 سجل الطلبات</div><div class="comments-box">${ordersHtml}</div></div>
         <div><div style="font-size:.78rem;color:var(--steel-400);margin-bottom:8px;">🧾 سجل الفواتير (كشف حساب)</div><div class="comments-box">${invoicesHtml}</div></div>
       </div>
+      <button class="btn btn-ghost btn-sm" data-action="reset-cust-pass">✉️ إرسال رابط إعادة تعيين كلمة السر لإيميله</button>
     </td></tr>`;
   }).join('');
 }
 document.getElementById('customersTable').addEventListener('click', (e)=>{
+  const resetBtn = e.target.closest('[data-action="reset-cust-pass"]');
+  if(resetBtn){
+    const id = resetBtn.closest('[data-cust-details-for]').dataset.custDetailsFor;
+    const c = customers.find(x=>x.id===id);
+    if(!c || !c.email){ showToast('مفيش إيميل مسجّل لهذا العميل'); return; }
+    auth.sendPasswordResetEmail(c.email).then(()=> showToast('تم إرسال رابط إعادة التعيين لإيميل العميل')).catch(err=> showToast('تعذر الإرسال: '+err.message));
+    return;
+  }
   const btn = e.target.closest('[data-action="toggle-cust-details"]'); if(!btn) return;
   const id = btn.closest('tr').dataset.id;
   openCustomerId = (openCustomerId===id) ? null : id;
   renderCustomers();
+});
+document.getElementById('customersTable').addEventListener('change', (e)=>{
+  const field = e.target.dataset.cfield; if(!field) return;
+  const id = e.target.closest('tr').dataset.id;
+  db.collection('customers').doc(id).update({[field]: e.target.value}).then(()=>{
+    logEvent('تعديل عميل', 'customers', id, `${field} → ${e.target.value}`);
+  });
 });
 
 function renderCoupons(){
